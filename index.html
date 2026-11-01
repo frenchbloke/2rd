@@ -58,7 +58,7 @@ canvas{display:block;width:100%;height:140px;background:var(--white);border-radi
     <div class="topleft">
       <div class="row">
         <label class="btn">Load audio<input type="file" id="file" accept="audio/*"></label>
-        <button id="sampleBtn" disabled>Sample 5 s</button>
+        <button id="sampleBtn" disabled>Sample/hold</button>
       </div>
       <div id="status">Load an audio file to begin.</div>
       <div class="big">2rd</div>
@@ -102,7 +102,7 @@ async function startCountdown(){
     txt+=(txt?'':'')+n+'...';setStatus(txt);await sleep(1000);
   }
   if(tok!==countTok||mode!=='main')return;
-  playMain();setStatus('Playing. Press Sample 5 s to grab up to 5 seconds.');
+  playMain();setStatus('Playing. Press Sample/hold to grab up to 5 seconds.');
 }
 function setMain(buf,name){
   countTok++;
@@ -133,12 +133,15 @@ function stopMain(){
 }
 
 /* ---------- sampling ---------- */
-function cancelCap(){cap=null;$('sampleBtn').classList.remove('rec');$('sampleBtn').textContent='Sample 5 s'}
-$('sampleBtn').onclick=()=>{
-  if(mode!=='main'||!playing)return;
-  if(!cap){cap={start:pos(),t0:ctx.currentTime};$('sampleBtn').classList.add('rec');setStatus('Sampling… press again to stop early.')}
-  else finishSample();
-};
+function cancelCap(){cap=null;$('sampleBtn').classList.remove('rec');$('sampleBtn').textContent='Sample/hold'}
+$('sampleBtn').addEventListener('pointerdown',e=>{
+  if(mode!=='main'||!playing||cap)return;e.preventDefault();
+  cap={start:pos(),t0:ctx.currentTime};$('sampleBtn').classList.add('rec');setStatus('Sampling… release to stop.');
+});
+const endSample=()=>{if(cap)finishSample()};
+$('sampleBtn').addEventListener('pointerup',endSample);
+$('sampleBtn').addEventListener('pointercancel',endSample);
+$('sampleBtn').addEventListener('pointerleave',e=>{if(cap&&!e.buttons)finishSample()});
 function finishSample(){
   const el=ctx.currentTime-cap.t0,start=cap.start;
   const len=Math.min(5,el,mainBuf.duration-start);cancelCap();
@@ -308,6 +311,13 @@ addEventListener('keyup',e=>{const i=KEYS.indexOf(e.key.toLowerCase());if(i>=0){
 
 /* ---------- drawing ---------- */
 const cv=$('cv'),g2=cv.getContext('2d');
+cv.addEventListener('pointerdown',e=>{
+  if(!mainBuf){setStatus('No audio loaded.');return}
+  if(mode!=='main'){setStatus('Click to return to main playback.');mode='main';sample=null;G=null;killAll();$('voices').innerHTML=''}
+  const r=cv.getBoundingClientRect();
+  const p=clamp((e.clientX-r.left)/r.width,0,1);
+  stopMain();mainOff=p*mainBuf.duration;startCountdown();
+});
 function frame(){
   const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
   if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
@@ -324,7 +334,7 @@ function frame(){
       if(cap){
         const el=ctx.currentTime-cap.t0;
         g2.strokeStyle=acc;g2.lineWidth=4;g2.setLineDash([8,6]);g2.strokeRect(cap.start/mainBuf.duration*w+2,2,Math.max(4,(Math.min(el,5)/mainBuf.duration)*w-4),h-4);g2.setLineDash([]);
-        $('sampleBtn').textContent=`Stop (${Math.max(0,5-el).toFixed(1)} s)`;
+        $('sampleBtn').textContent=`Release (${Math.max(0,5-el).toFixed(1)} s)`;
         if(el>=5||el>=mainBuf.duration-cap.start)finishSample();
       }
     }
