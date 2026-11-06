@@ -1,6 +1,6 @@
 # 2rd
 
-A single-file web audio sampler. Load an audio file, capture up to 5 seconds of it, then play it across a 25-key keyboard at varying pitches while a shared decay clock progressively lowpasses and thins the loop until silence.
+if Temu made a sample / hold looper that starts to degrade each time the loop is played. 
 
 ## Usage
 
